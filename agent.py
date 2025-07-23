@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import json
 from livekit.plugins import elevenlabs
+from livekit.agents import Agent, ChatContext, AgentSession
 
 from livekit import agents
 from livekit.agents import AgentSession, Agent, RoomInputOptions, function_tool, RunContext
@@ -19,8 +20,8 @@ load_dotenv()
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=ASSISTANT_INSTRUCTIONS)
+    def __init__(self, chat_ctx: ChatContext) -> None:
+        super().__init__(chat_ctx=chat_ctx, instructions=ASSISTANT_INSTRUCTIONS)
 
     async def on_enter(self):
         print("hello")
@@ -55,9 +56,12 @@ async def entrypoint(ctx: agents.JobContext):
         turn_detection=MultilingualModel(),
     )
 
+    initial_ctx = ChatContext()
+    initial_ctx.add_message(role="assistant", content=f"The user's name is Max")
+
     await session.start(
         room=ctx.room,
-        agent=Assistant(),
+        agent=Assistant(chat_ctx=initial_ctx),
         room_input_options=RoomInputOptions(
             # LiveKit Cloud enhanced noise cancellation
             # - If self-hosting, omit this parameter
@@ -69,6 +73,10 @@ async def entrypoint(ctx: agents.JobContext):
     
 
     await ctx.connect()
+
+    await session.generate_reply(
+        instructions="Greet the user by name and offer your assistance."
+    )
 
 
 if __name__ == "__main__":
