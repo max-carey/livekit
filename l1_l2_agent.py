@@ -1,10 +1,28 @@
 from livekit.agents import Agent, ChatContext, function_tool, RunContext
 from typing import Optional
 from instructions import L1_L2_QUIZZER
+from livekit.plugins import (
+    openai,
+    elevenlabs,
+    deepgram,
+    silero,
+)
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 class L1L2Agent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
-        super().__init__(chat_ctx=chat_ctx or ChatContext(), instructions=L1_L2_QUIZZER)
+        super().__init__(
+            chat_ctx=chat_ctx or ChatContext(),
+            instructions=L1_L2_QUIZZER,
+            stt=deepgram.STT(model="nova-3", language="multi"),
+            llm=openai.LLM(model="gpt-4o-mini"),
+            tts=elevenlabs.TTS(
+                voice_id="TX3LPaxmHKxFdv7VOQHJ",
+                model="eleven_multilingual_v2"
+            ),
+            vad=silero.VAD.load(),
+            turn_detection=MultilingualModel(),
+        )
         
     async def on_enter(self) -> None:
         """Hook called when this agent becomes active."""

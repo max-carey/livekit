@@ -20,7 +20,18 @@ load_dotenv()
 
 class HostAgent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
-        super().__init__(chat_ctx=chat_ctx or ChatContext(), instructions=HOST_INSTRUCTIONS)
+        super().__init__(
+            chat_ctx=chat_ctx or ChatContext(),
+            instructions=HOST_INSTRUCTIONS,
+            stt=deepgram.STT(model="nova-3", language="multi"),
+            llm=openai.LLM(model="gpt-4o-mini"),
+            tts=elevenlabs.TTS(
+                voice_id="21m00Tcm4TlvDq8ikWAM",
+                model="eleven_multilingual_v2"
+            ),
+            vad=silero.VAD.load(),
+            turn_detection=MultilingualModel(),
+        )
 
     @function_tool()
     async def start_l1_l2_quiz(
@@ -53,16 +64,7 @@ class HostAgent(Agent):
 
 
 async def entrypoint(ctx: agents.JobContext):
-    session = AgentSession(
-        stt=deepgram.STT(model="nova-3", language="multi"),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=elevenlabs.TTS(
-            voice_id="21m00Tcm4TlvDq8ikWAM",
-            model="eleven_multilingual_v2"
-        ),
-        vad=silero.VAD.load(),
-        turn_detection=MultilingualModel(),
-    )
+    session = AgentSession()
 
     initial_ctx = ChatContext()
     initial_ctx.add_message(role="assistant", content="The user's name is Lilian Chavez")
