@@ -1,2 +1,4 @@
 .env*
 *.pyc
+audios/**
+.DS_Store
