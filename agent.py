@@ -11,10 +11,10 @@ from livekit.plugins import (
     silero,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from instructions import HOST_INSTRUCTIONS
 from l1_l2_agent import L1L2Agent
 from l2_l1_agent import L2L1Agent
 from typing import Any, Optional
+from prompts.loader import load_prompt
 
 load_dotenv()
 
@@ -22,7 +22,7 @@ class HostAgent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
         super().__init__(
             chat_ctx=chat_ctx or ChatContext(),
-            instructions=HOST_INSTRUCTIONS,
+            instructions=load_prompt('host'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
             tts=elevenlabs.TTS(

@@ -8,6 +8,7 @@ dependencies = [
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv>=1.1.1",
     "torch>=2.0.0",
+    "PyYAML>=6.0",
 ]
 
 [tool.uv]

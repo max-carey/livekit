@@ -1,6 +1,6 @@
 from livekit.agents import Agent, ChatContext, function_tool, RunContext
 from typing import Optional
-from instructions import L1_L2_QUIZZER
+from prompts.loader import load_prompt
 from livekit.plugins import (
     openai,
     elevenlabs,
@@ -13,7 +13,7 @@ class L1L2Agent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
         super().__init__(
             chat_ctx=chat_ctx or ChatContext(),
-            instructions=L1_L2_QUIZZER,
+            instructions=load_prompt('l1_l2_quizzer'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
             tts=elevenlabs.TTS(
