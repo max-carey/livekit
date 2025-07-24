@@ -57,7 +57,7 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
     initial_ctx = ChatContext()
-    initial_ctx.add_message(role="assistant", content=f"The user's name is Max")
+    initial_ctx.add_message(role="assistant", content=f"The user's name is Lilian Chavez")
 
     await session.start(
         room=ctx.room,
@@ -70,13 +70,26 @@ async def entrypoint(ctx: agents.JobContext):
         ),
     )
 
-    
-
     await ctx.connect()
 
-    await session.generate_reply(
-        instructions="Greet the user by name and offer your assistance."
+    # await session.generate_reply(
+    #     instructions="Greet the user by their name very quickly"
+    # )
+
+    # await session.generate_reply(
+    #     instructions="Explain in Spanish that you are here to test them with their English speaking skills."
+    # )
+
+    handle =await session.generate_reply(
+        instructions="""In Spanish: Greet the user by name and tell them you are going to ask them a question in English about colors
+        In English: Ask them what color the sun is
+        In Spanish: After they answer: If they respond correctly in English then say that is good otherwise it is bad""",
+        tool_choice="lookup_weather"
     )
+
+    #handle.add_done_callback(lambda _: print("speech done"))
+
+    
 
 
 if __name__ == "__main__":
