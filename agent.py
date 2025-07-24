@@ -1,10 +1,8 @@
 from dotenv import load_dotenv
-import json
 from livekit.plugins import elevenlabs
-from livekit.agents import Agent, ChatContext, AgentSession
-
+from livekit.agents import Agent, ChatContext, AgentSession, function_tool, RunContext
 from livekit import agents
-from livekit.agents import AgentSession, Agent, RoomInputOptions, function_tool, RunContext
+from livekit.agents import RoomInputOptions
 from livekit.plugins import (
     openai,
     cartesia,
@@ -13,35 +11,45 @@ from livekit.plugins import (
     silero,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from instructions import ASSISTANT_INSTRUCTIONS
-from typing import Any
+from instructions import HOST_INSTRUCTIONS
+from l1_l2_agent import L1L2Agent
+from l2_l1_agent import L2L1Agent
+from typing import Any, Optional
 
 load_dotenv()
 
-
-class Assistant(Agent):
-    def __init__(self, chat_ctx: ChatContext) -> None:
-        super().__init__(chat_ctx=chat_ctx, instructions=ASSISTANT_INSTRUCTIONS)
-
-    async def on_enter(self):
-        print("hello")
-        # await self.session.generate_reply(
-        #     instructions="Be extremeley direct, Say I [laugh] love pizza",
-        # )
+class HostAgent(Agent):
+    def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
+        super().__init__(chat_ctx=chat_ctx or ChatContext(), instructions=HOST_INSTRUCTIONS)
 
     @function_tool()
-    async def lookup_weather(
+    async def start_l1_l2_quiz(
         self,
         context: RunContext,
-        location: str,
-    ) -> dict[str, Any]:
-        """Look up weather information for a given location.
-        
-        Args:
-            location: The location to look up weather information for.
-        """
+    ) -> Agent:
+        """Start the L1 to L2 quiz session."""
+        await context.session.say("Let's start the L1 to L2 quiz!")
+        return L1L2Agent()
 
-        return {"weather": "sunny", "temperature_f": 70}
+    @function_tool()
+    async def start_l2_l1_quiz(
+        self,
+        context: RunContext,
+    ) -> Agent:
+        """Start the L2 to L1 quiz session."""
+        await context.session.say("Let's start the L2 to L1 quiz!")
+        return L2L1Agent(chat_ctx=self.session.chat_ctx)
+
+    @function_tool()
+    async def stop_quiz(
+        self,
+        context: RunContext,
+    ) -> None:
+        """Stop the quiz session and end the conversation."""
+        await context.session.say(
+            instructions="Thank you and goodbye"
+        )
+        await context.session.stop()
 
 
 async def entrypoint(ctx: agents.JobContext):
@@ -57,39 +65,19 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
     initial_ctx = ChatContext()
-    initial_ctx.add_message(role="assistant", content=f"The user's name is Lilian Chavez")
+    initial_ctx.add_message(role="assistant", content="The user's name is Lilian Chavez")
 
     await session.start(
         room=ctx.room,
-        agent=Assistant(chat_ctx=initial_ctx),
+        agent=HostAgent(chat_ctx=initial_ctx),
         room_input_options=RoomInputOptions(
-            # LiveKit Cloud enhanced noise cancellation
-            # - If self-hosting, omit this parameter
-            # - For telephony applications, use `BVCTelephony` for best results
-            noise_cancellation=noise_cancellation.BVC(), 
+            noise_cancellation=noise_cancellation.BVC(),
         ),
     )
 
     await ctx.connect()
 
-    # await session.generate_reply(
-    #     instructions="Greet the user by their name very quickly"
-    # )
-
-    # await session.generate_reply(
-    #     instructions="Explain in Spanish that you are here to test them with their English speaking skills."
-    # )
-
-    handle =await session.generate_reply(
-        instructions="""In Spanish: Greet the user by name and tell them you are going to ask them a question in English about colors
-        In English: Ask them what color the sun is
-        In Spanish: After they answer: If they respond correctly in English then say that is good otherwise it is bad""",
-        tool_choice="lookup_weather"
-    )
-
-    #handle.add_done_callback(lambda _: print("speech done"))
-
-    
+    await session.say("Welcome to Vocab Voice. Say A to start L1 to L2 quiz or B to start L2 to L2 quiz")
 
 
 if __name__ == "__main__":
