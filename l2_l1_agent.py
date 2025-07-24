@@ -11,7 +11,7 @@ class L2L1Agent(Agent):
 
     async def on_enter(self) -> None:
         """Hook called when this agent becomes active."""
-        await self.chat_ctx.generate_reply(
+        await self.session.generate_reply(
             instructions="The TARGET LEXICAL ITEM IS inscribirse, quiz the user about its meaning in their L1"
         )
 
