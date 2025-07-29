@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 from livekit.plugins import elevenlabs
-from livekit.agents import Agent, ChatContext, AgentSession, function_tool, RunContext
+from livekit.agents import Agent, ChatContext, AgentSession, function_tool, RunContext, BackgroundAudioPlayer
 from livekit import agents
 from livekit.agents import RoomInputOptions
 from livekit.plugins import (
@@ -13,6 +13,7 @@ from livekit.plugins import (
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from l1_l2_agent import L1L2Agent
 from l2_l1_agent import L2L1Agent
+from dialogue_comprehension_agent import DialogueComprehensionAgent
 from typing import Any, Optional
 from prompts.loader import load_prompt
 
@@ -52,6 +53,15 @@ class HostAgent(Agent):
         return L2L1Agent(chat_ctx=self.session.chat_ctx)
 
     @function_tool()
+    async def start_dialogue_comprehension(
+        self,
+        context: RunContext,
+    ) -> Agent:
+        """Start the dialogue comprehension session."""
+        await context.session.say("Let's practice dialogue comprehension!")
+        return DialogueComprehensionAgent()
+
+    @function_tool()
     async def stop_quiz(
         self,
         context: RunContext,
@@ -65,7 +75,10 @@ class HostAgent(Agent):
 
 async def entrypoint(ctx: agents.JobContext):
     session = AgentSession()
-
+    
+    # Create the background audio player
+    background_audio = BackgroundAudioPlayer()
+    
     initial_ctx = ChatContext()
     initial_ctx.add_message(role="assistant", content="The user's name is Lilian Chavez")
 
@@ -78,8 +91,14 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
     await ctx.connect()
+    
+    # Start the background audio player
+    await background_audio.start(room=ctx.room, agent_session=session)
+    
+    # Store the background_audio player in the session for access by other agents
+    session.background_audio = background_audio
 
-    await session.say("Welcome to Vocab Voice. Say A to start L1 to L2 quiz or B to start L2 to L2 quiz")
+    await session.say("Welcome to Vocab Voice. Say A for L1 to L2 quiz, B for L2 to L1 quiz, or C for dialogue comprehension")
 
 
 if __name__ == "__main__":

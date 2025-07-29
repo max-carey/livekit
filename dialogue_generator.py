@@ -69,16 +69,36 @@ def create_audio_dialogue(dialogue: List[Dict[str, str]], target_word: str):
     # Create a temporary directory for intermediate files
     with tempfile.TemporaryDirectory() as temp_dir:
         print("\nCreating silence file...")
+        # Generate silence file directly in the correct format
+        silence_file = os.path.join(temp_dir, "silence.mp3")
+        subprocess.run([
+            "ffmpeg", "-f", "lavfi",
+            "-i", "anullsrc=r=44100:cl=mono",
+            "-t", "0.2",
+            "-acodec", "libmp3lame",
+            "-ar", "44100", "-ac", "1", "-b:a", "128k",
+            "-y", silence_file  # -y to overwrite if exists
+        ], check=True, capture_output=True)
+
+        # Verify the silence file was created correctly
+        result = subprocess.run([
+            "ffmpeg", "-i", silence_file
+        ], capture_output=True, text=True)
+        if "Invalid data found" in result.stderr:
+            print("Error: Silence file not generated correctly. Trying alternative approach...")
+            # Alternative silence generation
+            subprocess.run([
+                "ffmpeg", "-f", "lavfi",
+                "-i", "sine=frequency=1:duration=0.2",
+                "-af", "volume=-60dB",
+                "-acodec", "libmp3lame",
+                "-ar", "44100", "-ac", "1", "-b:a", "128k",
+                "-y", silence_file
+            ], check=True, capture_output=True)
+
+        print("\nGenerating individual audio files for each turn...")
         # Generate individual audio files for each turn
         audio_files = []
-        silence_file = os.path.join(temp_dir, "silence.mp3")
-        
-        # Create a 1-second silence file
-        subprocess.run([
-            "ffmpeg", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", 
-            "-t", "1", "-q:a", "0", "-map", "0", silence_file
-        ], check=True, capture_output=True)
-        
         for i, turn in enumerate(dialogue):
             print(f"\nGenerating audio for turn {i+1}/{len(dialogue)} (Speaker {turn['speaker']})...")
             print(f"Text: {turn['text']}")
@@ -114,20 +134,74 @@ def create_audio_dialogue(dialogue: List[Dict[str, str]], target_word: str):
             audio_files.append(temp_file)
             if i < len(dialogue) - 1:  # Don't add silence after the last turn
                 audio_files.append(silence_file)
-        
+
         print("\nCombining audio files...")
-        # Create a file list for ffmpeg
-        list_file = os.path.join(temp_dir, "files.txt")
-        with open(list_file, "w") as f:
-            for audio_file in audio_files:
-                f.write(f"file '{audio_file}'\n")
+        # Debug: Check each audio file's format
+        for i, audio_file in enumerate(audio_files):
+            print(f"\nChecking format of file {i+1}/{len(audio_files)}: {os.path.basename(audio_file)}")
+            subprocess.run([
+                "ffmpeg", "-i", audio_file
+            ], capture_output=True, text=True)
+
+        # Build the filter complex string for concatenation
+        inputs = []
+        filter_parts = []
+        for i, audio_file in enumerate(audio_files):
+            inputs.extend(["-i", audio_file])
+            filter_parts.append(f"[{i}:a]")
         
-        # Combine all audio files
+        filter_complex = f"{''.join(filter_parts)}concat=n={len(audio_files)}:v=0:a=1[outa]"
+        
+        # Combine all audio files using filter complex
         output_path = f"audios/{target_word.replace(' ', '_')}.mp3"
-        subprocess.run([
-            "ffmpeg", "-f", "concat", "-safe", "0", "-i", list_file,
-            "-c", "copy", output_path
-        ], check=True, capture_output=True)
+        print("\nExecuting final concatenation...")
+        cmd = [
+            "ffmpeg",
+            *inputs,
+            "-filter_complex", filter_complex,
+            "-map", "[outa]",
+            "-ac", "1",
+            "-ar", "44100",
+            "-b:a", "128k",
+            output_path
+        ]
+        
+        print("\nExecuting ffmpeg command:")
+        print(" ".join(cmd))
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.stderr:
+            print("\nffmpeg stderr output:")
+            print(result.stderr)
+            
+        if result.returncode != 0:
+            print("\nError concatenating files. Trying alternative approach...")
+            # Alternative approach: concatenate files one by one
+            temp_output = os.path.join(temp_dir, "temp_output.mp3")
+            # Copy first file as starting point
+            subprocess.run(["cp", audio_files[0], temp_output], check=True)
+            
+            for i in range(1, len(audio_files)):
+                next_temp = os.path.join(temp_dir, f"temp_output_{i}.mp3")
+                filter_complex = f"[0:a][1:a]concat=n=2:v=0:a=1[outa]"
+                result = subprocess.run([
+                    "ffmpeg",
+                    "-i", temp_output,
+                    "-i", audio_files[i],
+                    "-filter_complex", filter_complex,
+                    "-map", "[outa]",
+                    "-ac", "1",
+                    "-ar", "44100",
+                    "-b:a", "128k",
+                    next_temp
+                ], capture_output=True, text=True)
+                if result.stderr:
+                    print(f"\nffmpeg stderr for file {i+1}:")
+                    print(result.stderr)
+                subprocess.run(["mv", next_temp, temp_output], check=True)
+            
+            subprocess.run(["mv", temp_output, output_path], check=True)
         
         print(f"\nSaved combined audio file to {output_path}")
         return output_path
