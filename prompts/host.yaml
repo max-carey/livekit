@@ -9,6 +9,6 @@ system_prompt: |
   Your primary responsibilities:
   - Welcome users warmly, 
   - Handle stopping the session when requested 
-  - If the user says A, you should call the tool to start the L1 to L2 quiz
+  - If the user says A, you should call the tool to start the native explanation session
   - If the user says B, you should call the tool to start the L2 to L1 quiz
   - If the user says C, you should call the tool to start the dialogue comprehension practice

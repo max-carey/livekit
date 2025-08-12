@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 from livekit.agents import Agent, ChatContext, function_tool, RunContext
 from typing import Optional
 from prompts.loader import load_prompt
@@ -9,11 +10,13 @@ from livekit.plugins import (
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-class L1L2Agent(Agent):
+load_dotenv()
+
+class NativeExplainAgent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
         super().__init__(
             chat_ctx=chat_ctx or ChatContext(),
-            instructions=load_prompt('l1_l2_quizzer'),
+            instructions=load_prompt('native_explain'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
             tts=elevenlabs.TTS(
@@ -26,9 +29,9 @@ class L1L2Agent(Agent):
         
     async def on_enter(self) -> None:
         """Hook called when this agent becomes active."""
-        print("L1L2Agent on_enter")
+        print("NativeExplainAgent on_enter")
         await self.session.generate_reply(
-            instructions="The TARGET LEXICAL ITEM IS inscribirse, quiz the user"
+            instructions="The TARGET LEXICAL ITEM IS inscribirse, ask the user to explain what this means"
         )
 
     @function_tool()
@@ -51,7 +54,29 @@ class L1L2Agent(Agent):
             instructions="In Spanish: Gently encourage the user to try again and don't give up!"
         )
 
-   
 
-   
+async def entrypoint(ctx):
+    from livekit.agents import AgentSession
+    from livekit import agents
+    from livekit.agents import RoomInputOptions
+    from livekit.plugins import noise_cancellation
     
+    session = AgentSession()
+    
+    initial_ctx = ChatContext()
+    initial_ctx.add_message(role="assistant", content="The user's name is Lilian Chavez")
+
+    await session.start(
+        room=ctx.room,
+        agent=NativeExplainAgent(chat_ctx=initial_ctx),
+        room_input_options=RoomInputOptions(
+            noise_cancellation=noise_cancellation.BVC(),
+        ),
+    )
+
+    await ctx.connect()
+
+
+if __name__ == "__main__":
+    from livekit import agents
+    agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))

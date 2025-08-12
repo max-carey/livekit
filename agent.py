@@ -11,7 +11,7 @@ from livekit.plugins import (
     silero,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from l1_l2_agent import L1L2Agent
+from native_explain_agent import NativeExplainAgent
 from l2_l1_agent import L2L1Agent
 from dialogue_comprehension_agent import DialogueComprehensionAgent
 from typing import Any, Optional
@@ -35,13 +35,13 @@ class HostAgent(Agent):
         )
 
     @function_tool()
-    async def start_l1_l2_quiz(
+    async def start_native_explain(
         self,
         context: RunContext,
     ) -> Agent:
-        """Start the L1 to L2 quiz session."""
-        await context.session.say("Let's start the L1 to L2 quiz!")
-        return L1L2Agent()
+        """Start the native explanation session."""
+        await context.session.say("Let's start the native explanation session!")
+        return NativeExplainAgent()
 
     @function_tool()
     async def start_l2_l1_quiz(
@@ -98,7 +98,7 @@ async def entrypoint(ctx: agents.JobContext):
     # Store the background_audio player in the session for access by other agents
     session.background_audio = background_audio
 
-    await session.say("Welcome to Vocab Voice. Say A for L1 to L2 quiz, B for L2 to L1 quiz, or C for dialogue comprehension")
+    await session.say("Welcome to Vocab Voice. Say A for native explanation, B for L2 to L1 quiz, or C for dialogue comprehension")
 
 
 if __name__ == "__main__":

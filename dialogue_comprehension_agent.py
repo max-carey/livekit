@@ -75,4 +75,31 @@ class DialogueComprehensionAgent(Agent):
         else:
             await context.session.generate_reply(
                 instructions="In their native language: Gently explain what the dialogue was about and help them understand the target word/phrase better."
-            ) 
+            )
+
+
+async def entrypoint(ctx):
+    from livekit.agents import AgentSession
+    from livekit import agents
+    from livekit.agents import RoomInputOptions
+    from livekit.plugins import noise_cancellation
+    
+    session = AgentSession()
+    
+    initial_ctx = ChatContext()
+    initial_ctx.add_message(role="assistant", content="The user's name is Lilian Chavez")
+
+    await session.start(
+        room=ctx.room,
+        agent=DialogueComprehensionAgent(chat_ctx=initial_ctx),
+        room_input_options=RoomInputOptions(
+            noise_cancellation=noise_cancellation.BVC(),
+        ),
+    )
+
+    await ctx.connect()
+
+
+if __name__ == "__main__":
+    from livekit import agents
+    agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
