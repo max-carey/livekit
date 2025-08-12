@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.loader import load_prompt
 from livekit.plugins import (
     openai,
-    cartesia,
+    google,
     deepgram,
     silero,
 )
@@ -22,9 +22,9 @@ class NativeExplainAgent(Agent):
             instructions=load_prompt('native_explain'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
-            tts=cartesia.TTS(
-                model="sonic-multilingual",
-                voice="5c5ad5e7-1020-476b-8b91-fdcbe9cc313c"
+            tts=google.TTS(
+                language="es-US",
+                voice_name="es-US-Chirp3-HD-Puck"
             ),
             vad=silero.VAD.load(),
             turn_detection=MultilingualModel(),

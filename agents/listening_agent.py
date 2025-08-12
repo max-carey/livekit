@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.loader import load_prompt
 from livekit.plugins import (
     openai,
-    cartesia,
+    google,
     deepgram,
     silero,
 )
@@ -24,9 +24,10 @@ class ListenAgent(Agent):
             instructions=load_prompt('listening'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
-            tts=cartesia.TTS(
-                model="sonic-2",
-                voice="f786b574-daa5-4673-aa0c-cbe3e8534c02"
+            # Google TTS with Spanish voice - see https://docs.livekit.io/agents/integrations/tts/google/
+            tts=google.TTS(
+                language="es-US",
+                voice_name="es-US-Chirp3-HD-Puck"
             ),
             vad=silero.VAD.load(),
             turn_detection=MultilingualModel(),

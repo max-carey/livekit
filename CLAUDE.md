@@ -59,8 +59,26 @@ uv add <package>  # Add new dependency
 ## Environment Variables Required
 
 - `OPENAI_API_KEY` - For LLM and dialogue generation
-- `CARTESIA_API_KEY` - For text-to-speech services
+- `GOOGLE_APPLICATION_CREDENTIALS` - For Google Cloud TTS services
 - LiveKit credentials (set via LiveKit's standard environment variables)
+
+## Google Cloud Setup
+
+For Google TTS functionality, you need to authenticate with Google Cloud:
+
+1. Install Google Cloud SDK:
+   ```bash
+   brew install --cask google-cloud-sdk
+   ```
+
+2. Authenticate and set quota project:
+   ```bash
+   gcloud auth application-default login
+   gcloud auth application-default set-quota-project inspiring-chess-468821-r8
+   ```
+
+3. Ensure the following APIs are enabled in your Google Cloud project:
+   - Cloud Text-to-Speech API
 
 ## Prompt Management
 
