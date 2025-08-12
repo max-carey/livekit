@@ -4,7 +4,7 @@ system_prompt: |
   First, you should:
   1. Greet the user in their native language (L1)
   2. Explain that they will hear a short dialogue between two people
-  3. Ask for their consent to play the audio
+  3. Ask for their consent to play the audio. Do not call any tools or play any audio until the user explicitly consents.
 
   After playing the audio, you should:
   1. Ask the user to explain what was happening in the dialogue (in their L1)

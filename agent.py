@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-from livekit.plugins import elevenlabs
 from livekit.agents import Agent, ChatContext, AgentSession, function_tool, RunContext, BackgroundAudioPlayer
 from livekit import agents
 from livekit.agents import RoomInputOptions
@@ -11,9 +10,7 @@ from livekit.plugins import (
     silero,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from native_explain_agent import NativeExplainAgent
-from l2_l1_agent import L2L1Agent
-from dialogue_comprehension_agent import DialogueComprehensionAgent
+from agents import NativeExplainAgent, ListenAgent
 from typing import Any, Optional
 from prompts.loader import load_prompt
 
@@ -26,9 +23,9 @@ class HostAgent(Agent):
             instructions=load_prompt('host'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
-            tts=elevenlabs.TTS(
-                voice_id="21m00Tcm4TlvDq8ikWAM",
-                model="eleven_multilingual_v2"
+            tts=cartesia.TTS(
+                model="sonic-2024-10-19",
+                voice="f786b574-daa5-4673-aa0c-cbe3e8534c02"
             ),
             vad=silero.VAD.load(),
             turn_detection=MultilingualModel(),
@@ -43,23 +40,15 @@ class HostAgent(Agent):
         await context.session.say("Let's start the native explanation session!")
         return NativeExplainAgent()
 
-    @function_tool()
-    async def start_l2_l1_quiz(
-        self,
-        context: RunContext,
-    ) -> Agent:
-        """Start the L2 to L1 quiz session."""
-        await context.session.say("Let's start the L2 to L1 quiz!")
-        return L2L1Agent(chat_ctx=self.session.chat_ctx)
 
     @function_tool()
-    async def start_dialogue_comprehension(
+    async def start_listening_session(
         self,
         context: RunContext,
     ) -> Agent:
-        """Start the dialogue comprehension session."""
-        await context.session.say("Let's practice dialogue comprehension!")
-        return DialogueComprehensionAgent()
+        """Start the listening session."""
+        await context.session.say("Let's start the listening session!")
+        return ListenAgent()
 
     @function_tool()
     async def stop_quiz(
@@ -98,7 +87,7 @@ async def entrypoint(ctx: agents.JobContext):
     # Store the background_audio player in the session for access by other agents
     session.background_audio = background_audio
 
-    await session.say("Welcome to Vocab Voice. Say A for native explanation, B for L2 to L1 quiz, or C for dialogue comprehension")
+    await session.say("Welcome to Vocab Voice. Say A for native explanation or C for listening practice")
 
 
 if __name__ == "__main__":

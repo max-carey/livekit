@@ -29,7 +29,7 @@ def ensure_audio_directory():
 def generate_dialogue(target_word: str) -> List[Dict[str, str]]:
     """Generate a dialogue using OpenAI that naturally incorporates the target word."""
     system_prompt = """
-    You are a dialogue writer. Create a short, natural dialogue (2-5 turns) between two people (A and B).
+    You are a dialogue writer. Create a short, natural dialogue (2-3 turns) between two people (A and B).
     The dialogue should naturally incorporate the given target word without explicitly explaining it.
     Return ONLY a JSON array of objects, each with 'speaker' and 'text' keys.
     Keep the dialogue casual and relatable, ensuring it flows naturally when spoken.
@@ -46,7 +46,8 @@ def generate_dialogue(target_word: str) -> List[Dict[str, str]]:
     - Use speakers A and B
     - Include the word naturally in context
     - Keep it conversational and realistic
-    - Maximum 5 turns
+    - Maximum 3 turns
+    - Don't give away the meaning of the target word in the dialogue.
     - Make sure the dialogue flows well when spoken
     - Return ONLY the JSON array, no other text
     """

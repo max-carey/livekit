@@ -1,33 +1,40 @@
+from dotenv import load_dotenv
 from livekit.agents import Agent, ChatContext, function_tool, RunContext
 from typing import Optional
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.loader import load_prompt
 from livekit.plugins import (
     openai,
-    elevenlabs,
+    cartesia,
     deepgram,
     silero,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-class L2L1Agent(Agent):
+load_dotenv()
+
+class NativeExplainAgent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
         super().__init__(
             chat_ctx=chat_ctx or ChatContext(),
-            instructions=load_prompt('l2_l1_quizzer'),
+            instructions=load_prompt('native_explain'),
             stt=deepgram.STT(model="nova-3", language="multi"),
             llm=openai.LLM(model="gpt-4o-mini"),
-            tts=elevenlabs.TTS(
-                voice_id="TX3LPaxmHKxFdv7VOQHJ",
-                model="eleven_multilingual_v2"
+            tts=cartesia.TTS(
+                model="sonic-multilingual",
+                voice="5c5ad5e7-1020-476b-8b91-fdcbe9cc313c"
             ),
             vad=silero.VAD.load(),
             turn_detection=MultilingualModel(),
         )
-
+        
     async def on_enter(self) -> None:
         """Hook called when this agent becomes active."""
+        print("NativeExplainAgent on_enter")
         await self.session.generate_reply(
-            instructions="The TARGET LEXICAL ITEM IS inscribirse, quiz the user about its meaning in their L1"
+            instructions="The TARGET LEXICAL ITEM IS 'GO ON', ask the user to explain what this phrasal verb means"
         )
 
     @function_tool()
@@ -60,11 +67,11 @@ async def entrypoint(ctx):
     session = AgentSession()
     
     initial_ctx = ChatContext()
-    initial_ctx.add_message(role="assistant", content="The user's name is Lilian Chavez")
+    initial_ctx.add_message(role="assistant", content="The user's name is Roberto")
 
     await session.start(
         room=ctx.room,
-        agent=L2L1Agent(chat_ctx=initial_ctx),
+        agent=NativeExplainAgent(chat_ctx=initial_ctx),
         room_input_options=RoomInputOptions(
             noise_cancellation=noise_cancellation.BVC(),
         ),
