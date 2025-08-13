@@ -24,7 +24,11 @@ class GraphState(TypedDict):
 def _set_env(var: str):
     """Helper function to set environment variable if not already set."""
     if not os.environ.get(var):
-        os.environ[var] = getpass.getpass(f"{var}: ")
+        # Try to load from .env file first
+        from dotenv import load_dotenv
+        load_dotenv()
+        if not os.environ.get(var):
+            print(f"⚠️  {var} not found in environment or .env file")
 
 
 def node_one(state: GraphState) -> GraphState:
@@ -109,15 +113,22 @@ def node_two(state: GraphState) -> GraphState:
 def create_hello_world_graph():
     """Create and return the compiled LangGraph."""
     
-    # Initialize LangSmith client (optional - will work without API key)
-    try:
-        if os.getenv("LANGCHAIN_API_KEY"):
+    # Load environment variables from .env file
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    # Configure LangSmith tracing if API key is available
+    if os.getenv("LANGSMITH_API_KEY"):
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGCHAIN_PROJECT"] = "livekit-langgraph-integration"
+        
+        try:
             client = Client()
-            print("📊 LangSmith integration enabled!")
-        else:
-            print("⚠️  LangSmith API key not found. Running without tracing.")
-    except Exception as e:
-        print(f"⚠️  LangSmith setup warning: {e}")
+            print("📊 LangSmith tracing enabled for project: livekit-langgraph-integration")
+        except Exception as e:
+            print(f"⚠️  LangSmith setup warning: {e}")
+    else:
+        print("⚠️  LANGSMITH_API_KEY not found in .env file. Running without tracing.")
     
     # Create the state graph
     workflow = StateGraph(GraphState)
