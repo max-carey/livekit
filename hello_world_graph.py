@@ -1,9 +1,4 @@
-"""
-Simple LangGraph Hello World example with 2 nodes and OpenAI integration.
-"""
-
 import os
-import getpass
 from typing import TypedDict, Any, Optional
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -15,7 +10,6 @@ from langchain_core.prompts import ChatPromptTemplate
 import asyncio
 
 
-# Define the state structure
 class GraphState(TypedDict):
     """State for our simple hello world graph."""
     messages: list  # LangChain messages from LiveKit chat context
@@ -208,36 +202,13 @@ def final_response_node(state: GraphState) -> GraphState:
     }
 
 
-def node_one(state: GraphState) -> GraphState:
-    """First node - processes the chat context messages."""
-    print("🚀 Node One: Processing chat context messages!")
-    print("here is the state in node one", state)
-    
-    # Get messages from LiveKit chat context (converted by LLMAdapter)
-    messages = state.get("messages", [])
-    print(f"📨 Received {len(messages)} messages from chat context")
-    
-    # Extract the latest user message if available
-    latest_message = ""
-    for msg in reversed(messages):
-        if hasattr(msg, 'content') and msg.content:
-            latest_message = msg.content
-            break
-    
-    processed_by = state.get("processed_by", []) + ["node_one"]
-    return {
-        "messages": messages,  # Pass through the messages
-        "message": latest_message or "Hello World",
-        "counter": state.get("counter", 0) + 1,
-        "processed_by": processed_by,
-        "llm_response": state.get("llm_response", "")
-    }
 
 
-def node_two(state: GraphState) -> GraphState:
-    """Second node - calls OpenAI LLM with chat context and tool binding."""
-    print("🤖 Node Two: Calling OpenAI LLM with chat context and tools!")
-    print("here is the state in node two", state)
+
+def check_for_right_answer(state: GraphState) -> GraphState:
+    """Check user's answer and determine if it's correct using LLM with tools."""
+    print("🤖 Check for Right Answer: Calling OpenAI LLM with chat context and tools!")
+    print("here is the state in check_for_right_answer", state)
     
     # Ensure OpenAI API key is set
     _set_env("OPENAI_API_KEY")
@@ -253,7 +224,7 @@ def node_two(state: GraphState) -> GraphState:
     messages = state.get("messages", [])
     current_message = state.get("message", "")
 
-    print(f"📨 Node Two - Input messages ({len(messages)}):")
+    print(f"📨 Check Answer - Input messages ({len(messages)}):")
     for i, msg in enumerate(messages):
         print(f"  {i}: {type(msg).__name__} - {getattr(msg, 'role', 'no role')} - {getattr(msg, 'content', '')[:50]}...")
     print(f"📨 Current message: {current_message}")
@@ -274,7 +245,7 @@ def node_two(state: GraphState) -> GraphState:
             # Add the AI response to the messages
             updated_messages.append(response)
             
-            print(f"📤 Node Two - Output messages ({len(updated_messages)}):")
+            print(f"📤 Check Answer - Output messages ({len(updated_messages)}):")
             for i, msg in enumerate(updated_messages):
                 print(f"  {i}: {type(msg).__name__} - {getattr(msg, 'role', 'no role')} - {getattr(msg, 'content', '')[:50]}...")
             
@@ -304,7 +275,7 @@ def node_two(state: GraphState) -> GraphState:
             error_message = AIMessage(content=llm_response)
             updated_messages = [human_message, error_message]
     
-    processed_by = state.get("processed_by", []) + ["node_two"]
+    processed_by = state.get("processed_by", []) + ["check_for_right_answer"]
     return {
         "messages": updated_messages,  # Return updated messages with AI response
         "message": current_message,
@@ -340,18 +311,16 @@ def create_hello_world_graph():
     workflow = StateGraph(GraphState)
     
     # Add nodes
-    workflow.add_node("node_one", node_one)
-    workflow.add_node("node_two", node_two)
+    workflow.add_node("check_answer", check_for_right_answer)
     workflow.add_node("tools", custom_tool_node)  # Use our custom tool node
     workflow.add_node("final_response", final_response_node)
     
     # Define the flow with conditional routing
-    workflow.set_entry_point("node_one")
-    workflow.add_edge("node_one", "node_two")
+    workflow.set_entry_point("check_answer")
     
-    # Add conditional edge from node_two
+    # Add conditional edge from check_answer
     workflow.add_conditional_edges(
-        "node_two",
+        "check_answer",
         should_continue,
         {
             "tools": "tools",
@@ -367,7 +336,7 @@ def create_hello_world_graph():
     # Compile the graph
     graph = workflow.compile()
     
-    print("🎯 Hello World LangGraph with OpenAI integration and tool execution compiled successfully!")
+    print("🎯 Native Explain LangGraph: Check Answer -> Tools -> Final Response compiled successfully!")
     return graph
 
 
