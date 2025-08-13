@@ -100,12 +100,12 @@ def custom_tool_node(state: GraphState) -> GraphState:
         if tool_name in tools_map:
             try:
                 print(f"🔧 Executing tool: {tool_name}")
-                # Execute the tool
-                if asyncio.iscoroutinefunction(tools_map[tool_name].func):
-                    # For async tools, we need to run them
-                    result = asyncio.run(tools_map[tool_name].func())
-                else:
-                    result = tools_map[tool_name].func()
+                # Execute the tool using LangChain's invoke method
+                tool_args = tool_call.get("args", {})
+                print(f"🔧 Tool args: {tool_args}")
+                
+                # Use the tool's invoke method (handles both sync and async)
+                result = tools_map[tool_name].invoke(tool_args)
                 
                 # Create tool message
                 tool_message = ToolMessage(
