@@ -5,11 +5,12 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.loader import load_prompt
+from hello_world_graph import create_workflow
 from livekit.plugins import (
-    openai,
     google,
     deepgram,
     silero,
+    langchain,
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
@@ -21,7 +22,9 @@ class NativeExplainAgent(Agent):
             chat_ctx=chat_ctx or ChatContext(),
             instructions=load_prompt('native_explain'),
             stt=deepgram.STT(model="nova-3", language="multi"),
-            llm=openai.LLM(model="gpt-4o-mini"),
+            llm=langchain.LLMAdapter(
+                graph=create_workflow()
+            ),
             tts=google.TTS(
                 language="es-US",
                 voice_name="es-US-Chirp3-HD-Puck"
