@@ -4,11 +4,15 @@ Simple LangGraph Hello World example with 2 nodes and OpenAI integration.
 
 import os
 import getpass
-from typing import TypedDict
+from typing import TypedDict, Any, Optional
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
 from langsmith import Client
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+import asyncio
 
 
 # Define the state structure
@@ -29,6 +33,179 @@ def _set_env(var: str):
         load_dotenv()
         if not os.environ.get(var):
             print(f"⚠️  {var} not found in environment or .env file")
+
+
+# Define tools that can be called by the LLM
+@tool
+async def correct_answer() -> str:
+    """Call this tool when the user answers correctly."""
+    # This will be executed automatically by LangGraph when the LLM calls this tool
+    # The actual LiveKit session interaction will need to be handled through a callback
+    print("✅ Tool executed: correct_answer")
+    return "The user answered correctly! Generating congratulatory response in Spanish."
+
+
+@tool  
+async def wrong_answer() -> str:
+    """Call this tool when the user answers incorrectly."""
+    # This will be executed automatically by LangGraph when the LLM calls this tool
+    print("❌ Tool executed: wrong_answer") 
+    return "The user answered incorrectly. Generating encouragement response in Spanish."
+
+
+def should_continue(state: GraphState) -> str:
+    """Determine if we should continue to tools or end."""
+    messages = state.get("messages", [])
+    if not messages:
+        return "end"
+    
+    last_message = messages[-1]
+    # Check if the last message has tool calls
+    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        print(f"🔧 Tool calls detected: {len(last_message.tool_calls)} tools to execute")
+        return "tools"
+    return "end"
+
+
+def custom_tool_node(state: GraphState) -> GraphState:
+    """Custom tool execution node that preserves conversation history."""
+    print("🔧 Custom Tool Node: Executing tools while preserving conversation")
+    
+    messages = state.get("messages", [])
+    print(f"📨 Tool Node - Input messages ({len(messages)}):")
+    for i, msg in enumerate(messages):
+        print(f"  {i}: {type(msg).__name__} - {getattr(msg, 'role', 'no role')} - {getattr(msg, 'content', '')[:50]}...")
+    
+    # Find the last AI message with tool calls
+    last_ai_message = None
+    for msg in reversed(messages):
+        if hasattr(msg, 'tool_calls') and msg.tool_calls:
+            last_ai_message = msg
+            break
+    
+    if not last_ai_message:
+        print("❌ No AI message with tool calls found")
+        return state
+    
+    print(f"🔧 Found AI message with {len(last_ai_message.tool_calls)} tool calls")
+    
+    # Execute tools and create tool messages
+    tools_map = {tool.name: tool for tool in [correct_answer, wrong_answer]}
+    tool_messages = []
+    
+    for tool_call in last_ai_message.tool_calls:
+        tool_name = tool_call["name"]
+        tool_call_id = tool_call["id"]
+        
+        if tool_name in tools_map:
+            try:
+                print(f"🔧 Executing tool: {tool_name}")
+                # Execute the tool
+                if asyncio.iscoroutinefunction(tools_map[tool_name].func):
+                    # For async tools, we need to run them
+                    result = asyncio.run(tools_map[tool_name].func())
+                else:
+                    result = tools_map[tool_name].func()
+                
+                # Create tool message
+                tool_message = ToolMessage(
+                    content=str(result),
+                    tool_call_id=tool_call_id,
+                    name=tool_name
+                )
+                tool_messages.append(tool_message)
+                print(f"✅ Tool {tool_name} executed successfully: {result}")
+                
+            except Exception as e:
+                print(f"❌ Error executing tool {tool_name}: {e}")
+                error_message = ToolMessage(
+                    content=f"Error executing {tool_name}: {str(e)}",
+                    tool_call_id=tool_call_id,
+                    name=tool_name
+                )
+                tool_messages.append(error_message)
+    
+    # Add tool messages to the conversation
+    updated_messages = messages + tool_messages
+    
+    print(f"📤 Tool Node - Output messages ({len(updated_messages)}):")
+    for i, msg in enumerate(updated_messages):
+        print(f"  {i}: {type(msg).__name__} - {getattr(msg, 'role', 'no role')} - {getattr(msg, 'content', '')[:50]}...")
+    
+    processed_by = state.get("processed_by", []) + ["custom_tool_node"]
+    return {
+        "messages": updated_messages,
+        "message": state.get("message", ""),
+        "counter": state.get("counter", 0) + 1,
+        "processed_by": processed_by,
+        "llm_response": state.get("llm_response", "")
+    }
+
+
+def final_response_node(state: GraphState) -> GraphState:
+    """Generate final response after tools have been executed."""
+    print("🎯 Final Response Node: Generating response based on tool results")
+    
+    # Ensure OpenAI API key is set
+    _set_env("OPENAI_API_KEY")
+    
+    # Initialize OpenAI chat model (no tools needed for final response)
+    llm = ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.7,
+    )
+    
+    messages = state.get("messages", [])
+    print(f"📨 Processing {len(messages)} messages for final response")
+    
+    # Debug: print detailed message information
+    print("🔍 Detailed message analysis:")
+    for i, msg in enumerate(messages):
+        msg_type = type(msg).__name__
+        role = getattr(msg, 'role', 'no role')
+        content = getattr(msg, 'content', 'no content')
+        tool_calls = getattr(msg, 'tool_calls', None)
+        tool_call_id = getattr(msg, 'tool_call_id', None)
+        name = getattr(msg, 'name', None)
+        
+        print(f"  Message {i}: {msg_type}")
+        print(f"    Role: {role}")
+        print(f"    Content: {content[:100] if content else 'None'}...")
+        print(f"    Tool calls: {len(tool_calls) if tool_calls else 'None'}")
+        print(f"    Tool call ID: {tool_call_id}")
+        print(f"    Name: {name}")
+        print()
+    
+    llm_response = ""
+    updated_messages = messages.copy()
+    
+    if messages:
+        try:
+            # With our custom tool node, messages should now be properly ordered
+            print(f"📨 Sending {len(messages)} messages to LLM for final response")
+            
+            response = llm.invoke(messages)
+            llm_response = response.content or ""
+            print(f"✨ Final LLM Response: {llm_response}")
+            
+            # Add the final AI response to the messages
+            updated_messages.append(response)
+            
+        except Exception as e:
+            print(f"❌ Error in final response: {e}")
+            print(f"❌ Messages that caused error: {[type(msg).__name__ for msg in messages]}")
+            llm_response = f"Error generating final response: {str(e)}"
+            error_message = AIMessage(content=llm_response)
+            updated_messages.append(error_message)
+    
+    processed_by = state.get("processed_by", []) + ["final_response"]
+    return {
+        "messages": updated_messages,
+        "message": state.get("message", ""),
+        "counter": state.get("counter", 0) + 1,
+        "processed_by": processed_by,
+        "llm_response": llm_response
+    }
 
 
 def node_one(state: GraphState) -> GraphState:
@@ -58,23 +235,31 @@ def node_one(state: GraphState) -> GraphState:
 
 
 def node_two(state: GraphState) -> GraphState:
-    """Second node - calls OpenAI LLM using the chat context messages."""
-    print("🤖 Node Two: Calling OpenAI LLM with chat context!")
+    """Second node - calls OpenAI LLM with chat context and tool binding."""
+    print("🤖 Node Two: Calling OpenAI LLM with chat context and tools!")
     print("here is the state in node two", state)
     
     # Ensure OpenAI API key is set
     _set_env("OPENAI_API_KEY")
     
-    # Initialize OpenAI chat model using LangChain
+    # Initialize OpenAI chat model using LangChain and bind tools
+    tools = [correct_answer, wrong_answer]
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.7,
-        max_tokens=100
-    )
+    ).bind_tools(tools)
     
     # Use the messages from LiveKit chat context (already converted to LangChain format)
     messages = state.get("messages", [])
     current_message = state.get("message", "")
+
+    print(f"📨 Node Two - Input messages ({len(messages)}):")
+    for i, msg in enumerate(messages):
+        print(f"  {i}: {type(msg).__name__} - {getattr(msg, 'role', 'no role')} - {getattr(msg, 'content', '')[:50]}...")
+    print(f"📨 Current message: {current_message}")
+    
+    llm_response = ""
+    updated_messages = messages.copy()
     
     # If we have chat context messages, use them; otherwise fall back to simple message
     if messages:
@@ -82,11 +267,23 @@ def node_two(state: GraphState) -> GraphState:
         # Call the LLM with the full conversation history
         try:
             response = llm.invoke(messages)
-            llm_response = response.content
+            llm_response = response.content or ""
             print(f"✨ LLM Response: {llm_response}")
+            print(f"🔧 Tool calls in response: {getattr(response, 'tool_calls', [])}")
+            
+            # Add the AI response to the messages
+            updated_messages.append(response)
+            
+            print(f"📤 Node Two - Output messages ({len(updated_messages)}):")
+            for i, msg in enumerate(updated_messages):
+                print(f"  {i}: {type(msg).__name__} - {getattr(msg, 'role', 'no role')} - {getattr(msg, 'content', '')[:50]}...")
+            
         except Exception as e:
             print(f"❌ Error calling LLM: {e}")
             llm_response = f"Error: {str(e)}"
+            # Add error message to conversation
+            error_message = AIMessage(content=llm_response)
+            updated_messages.append(error_message)
     else:
         # Fallback to simple message handling
         human_message = HumanMessage(
@@ -94,20 +291,29 @@ def node_two(state: GraphState) -> GraphState:
         )
         try:
             response = llm.invoke([human_message])
-            llm_response = response.content
+            llm_response = response.content or ""
             print(f"✨ LLM Response: {llm_response}")
+            print(f"🔧 Tool calls in response: {getattr(response, 'tool_calls', [])}")
+            
+            # Update messages with both human message and AI response
+            updated_messages = [human_message, response]
+            
         except Exception as e:
             print(f"❌ Error calling LLM: {e}")
             llm_response = f"Error: {str(e)}"
+            error_message = AIMessage(content=llm_response)
+            updated_messages = [human_message, error_message]
     
     processed_by = state.get("processed_by", []) + ["node_two"]
     return {
-        "messages": messages,  # Pass through the messages
+        "messages": updated_messages,  # Return updated messages with AI response
         "message": current_message,
         "counter": state.get("counter", 0) + 1,
         "processed_by": processed_by,
         "llm_response": llm_response
     }
+
+
 
 
 def create_hello_world_graph():
@@ -133,19 +339,35 @@ def create_hello_world_graph():
     # Create the state graph
     workflow = StateGraph(GraphState)
     
-    # Add nodes (only two nodes now)
+    # Add nodes
     workflow.add_node("node_one", node_one)
     workflow.add_node("node_two", node_two)
+    workflow.add_node("tools", custom_tool_node)  # Use our custom tool node
+    workflow.add_node("final_response", final_response_node)
     
-    # Define the flow
+    # Define the flow with conditional routing
     workflow.set_entry_point("node_one")
     workflow.add_edge("node_one", "node_two")
-    workflow.add_edge("node_two", END)
+    
+    # Add conditional edge from node_two
+    workflow.add_conditional_edges(
+        "node_two",
+        should_continue,
+        {
+            "tools": "tools",
+            "end": END,
+        }
+    )
+    
+    # After tools are executed, generate final response
+    workflow.add_edge("tools", "final_response")
+    # After final response, end the workflow
+    workflow.add_edge("final_response", END)
     
     # Compile the graph
     graph = workflow.compile()
     
-    print("🎯 Hello World LangGraph with OpenAI integration compiled successfully!")
+    print("🎯 Hello World LangGraph with OpenAI integration and tool execution compiled successfully!")
     return graph
 
 

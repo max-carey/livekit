@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from livekit.agents import Agent, ChatContext, function_tool, RunContext
+from livekit.agents import Agent, ChatContext
 from typing import Optional
 import sys
 import os
@@ -38,26 +38,6 @@ class NativeExplainAgent(Agent):
         print("NativeExplainAgent on_enter")
         await self.session.generate_reply(
             instructions="The TARGET LEXICAL ITEM IS 'GO ON', ask the user to explain what this phrasal verb means"
-        )
-
-    @function_tool()
-    async def correct_answer(
-        self,
-        context: RunContext,
-    ) -> None:
-        """Call this tool when the user answers correctly."""
-        await context.session.generate_reply(
-            instructions="In Spanish: Congratulate the user enthusiastically for their correct answer!"
-        )
-
-    @function_tool()
-    async def wrong_answer(
-        self,
-        context: RunContext,
-    ) -> None:
-        """Call this tool when the user answers incorrectly."""
-        await context.session.generate_reply(
-            instructions="In Spanish: Gently encourage the user to try again and don't give up!"
         )
 
 
