@@ -5,7 +5,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.loader import load_prompt
-from hello_world_graph import create_workflow
+from native_explain_graph import create_workflow
 from livekit.plugins import (
     google,
     deepgram,
@@ -50,7 +50,7 @@ async def entrypoint(ctx):
     session = AgentSession()
     
     initial_ctx = ChatContext()
-    initial_ctx.add_message(role="assistant", content="The user's name is Roberto")
+    initial_ctx.add_message(role="assistant", content="The user's name is Max")
 
     await session.start(
         room=ctx.room,

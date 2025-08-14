@@ -11,7 +11,7 @@ import asyncio
 
 
 class GraphState(TypedDict):
-    """State for our simple hello world graph."""
+    """State for our native explain graph."""
     messages: list  # LangChain messages from LiveKit chat context
     message: str
     counter: int
@@ -287,7 +287,7 @@ def check_for_right_answer(state: GraphState) -> GraphState:
 
 
 
-def create_hello_world_graph():
+def create_native_explain_graph():
     """Create and return the compiled LangGraph."""
     
     # Load environment variables from .env file
@@ -342,11 +342,11 @@ def create_hello_world_graph():
 
 def create_workflow():
     """Simple wrapper function for LiveKit LangChain integration."""
-    return create_hello_world_graph()
+    return create_native_explain_graph()
 
 
 # Export the compiled graph
-graph = create_hello_world_graph()
+graph = create_native_explain_graph()
 
 # Example usage with LangGraphAdapter pattern
 def create_langgraph_adapter():
@@ -362,10 +362,10 @@ def create_langgraph_adapter():
     return graph
 
 
-def run_hello_world_example():
-    """Run the hello world graph with sample input."""
+def run_native_explain_example():
+    """Run the native explain graph with sample input."""
     print("\n" + "="*50)
-    print("🎉 Running Hello World LangGraph with OpenAI Example")
+    print("🎉 Running Native Explain LangGraph with OpenAI Example")
     print("="*50)
     
     # Initial state
@@ -392,4 +392,4 @@ def run_hello_world_example():
 
 if __name__ == "__main__":
     # Run the example
-    run_hello_world_example()
+    run_native_explain_example()
