@@ -61,6 +61,10 @@ uv add <package>  # Add new dependency
 - `OPENAI_API_KEY` - For LLM and dialogue generation
 - `GOOGLE_APPLICATION_CREDENTIALS` - For Google Cloud TTS services
 - LiveKit credentials (set via LiveKit's standard environment variables)
+- Langfuse credentials (optional, for telemetry):
+  - `LANGFUSE_PUBLIC_KEY` - Langfuse public key
+  - `LANGFUSE_SECRET_KEY` - Langfuse secret key
+  - `LANGFUSE_HOST` - Langfuse host URL (e.g., https://cloud.langfuse.com)
 
 ## Google Cloud Setup
 

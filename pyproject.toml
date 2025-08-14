@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "LiveKit AI Agent"
 requires-python = ">=3.9"
 dependencies = [
-    "livekit-agents[cartesia,deepgram,openai,silero,turn-detector,elevenlabs]~=1.0",
+    "livekit-agents[cartesia,deepgram,elevenlabs,openai,silero,turn-detector]~=1.2",
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv>=1.1.1",
     "torch>=2.0.0",
@@ -15,7 +15,8 @@ dependencies = [
     "livekit-plugins-google>=1.1.6",
     "livekit-plugins-langchain~=1.1",
     "langchain-openai>=0.1.0",
-    "langgraph>=0.2.0"
+    "langgraph>=0.2.0",
+    "langfuse>=3.2.6",
 ]
 
 [tool.uv]

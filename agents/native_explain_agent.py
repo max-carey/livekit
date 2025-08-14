@@ -1,10 +1,11 @@
 import asyncio
+import base64
+import os
 from dotenv import load_dotenv
 from livekit.agents import Agent, ChatContext, function_tool
 from livekit import api
 from typing import Optional
 import sys
-import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from prompts.loader import load_prompt
 from livekit.plugins import (
@@ -15,8 +16,32 @@ from livekit.plugins import (
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from livekit.agents.metrics import LLMMetrics, STTMetrics, TTSMetrics, EOUMetrics
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from livekit.agents.telemetry import set_tracer_provider
 
 load_dotenv()
+
+def setup_langfuse(
+    host: str | None = None, public_key: str | None = None, secret_key: str | None = None
+):
+    
+
+    public_key = public_key or os.getenv("LANGFUSE_PUBLIC_KEY")
+    secret_key = secret_key or os.getenv("LANGFUSE_SECRET_KEY")
+    host = host or os.getenv("LANGFUSE_HOST")
+
+    if not public_key or not secret_key or not host:
+        raise ValueError("LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_HOST must be set")
+
+    langfuse_auth = base64.b64encode(f"{public_key}:{secret_key}".encode()).decode()
+    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"{host.rstrip('/')}/api/public/otel"
+    os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {langfuse_auth}"
+
+    trace_provider = TracerProvider()
+    trace_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+    set_tracer_provider(trace_provider)
 
 class NativeExplainAgent(Agent):
     def __init__(self, chat_ctx: Optional[ChatContext] = None, room_name: Optional[str] = None) -> None:
@@ -88,7 +113,7 @@ class NativeExplainAgent(Agent):
         """Hook called when this agent becomes active."""
         print("NativeExplainAgent on_enter")
         await self.session.generate_reply(
-            instructions="The TARGET LEXICAL ITEM IS 'GO ON', ask the user to explain what this phrasal verb means"
+            instructions="The TARGET LEXICAL ITEM IS 'MULL OVER', ask the user to explain what this phrasal verb means"
         )
     async def on_stt_metrics_collected(self, metrics: STTMetrics) -> None:
         print("\n--- STT Metrics ---")
@@ -121,6 +146,8 @@ class NativeExplainAgent(Agent):
 
 
 async def entrypoint(ctx):
+    setup_langfuse()  # set up the langfuse tracer provider
+    
     from livekit.agents import AgentSession
     from livekit import agents
     from livekit.agents import RoomInputOptions
