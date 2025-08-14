@@ -21,14 +21,6 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from livekit.agents.telemetry import set_tracer_provider
 
-from livekit.agents import AgentSession
-from dataclasses import dataclass
-
-@dataclass
-class MySessionInfo:
-    user_name: str | None = None
-    age: int | None = None
-
 load_dotenv()
 
 def setup_langfuse(
@@ -161,7 +153,7 @@ async def entrypoint(ctx):
     from livekit.agents import RoomInputOptions
     from livekit.plugins import noise_cancellation
     
-    session = AgentSession(userdata=MySessionInfo(user_name="Max", age=25))
+    session = AgentSession()
     
     initial_ctx = ChatContext()
     initial_ctx.add_message(role="assistant", content="The user's name is Max")
