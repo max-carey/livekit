@@ -3,7 +3,6 @@ import base64
 import os
 from dotenv import load_dotenv
 from livekit.agents import Agent, ChatContext, function_tool
-from livekit import api
 from typing import Optional
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -83,30 +82,12 @@ class NativeExplainAgent(Agent):
     async def correct_answer(self) -> str:
         """Call this tool when the user answers correctly explains the target lexical item"""
         print("✅ Tool executed: correct_answer")
-        await self.session.generate_reply(
-            instructions="Congratulate the user in Spanish and ask for the next word"
-        )
         return "The user answered correctly!"
 
     @function_tool()
     async def wrong_answer(self) -> str:
         """Call this tool when the user answers incorrectly explains the target lexical item"""
         print("❌ Tool executed: wrong_answer")
-        
-        if self._room_name:
-            api_client = api.LiveKitAPI(
-                os.getenv("LIVEKIT_URL"),
-                os.getenv("LIVEKIT_API_KEY"),
-                os.getenv("LIVEKIT_API_SECRET"),
-            )
-            try:
-                await api_client.room.delete_room(api.DeleteRoomRequest(
-                    room=self._room_name,
-                ))
-                print(f"Successfully deleted room: {self._room_name}")
-            except Exception as e:
-                print(f"Failed to delete room {self._room_name}: {e}")
-        
         return "The user answered incorrectly. Session ended."
         
     async def on_enter(self) -> None:
