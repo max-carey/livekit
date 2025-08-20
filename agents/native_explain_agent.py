@@ -1,3 +1,6 @@
+# Native language explanation agent for language learning
+# This agent helps users explain L2 vocabulary meanings in their native language
+
 import os
 from dotenv import load_dotenv
 from livekit.agents import Agent, ChatContext, function_tool
@@ -61,6 +64,7 @@ class MySessionInfo:
     age: int | None = None
     target_lexical_item: TargetLexicalItem | None = None
 
+# Load environment variables from .env file
 load_dotenv()
 
 def create_target_lexical_item(phrase: str, senses_data: List[Dict[str, Any]]) -> TargetLexicalItem:
@@ -86,51 +90,77 @@ def create_target_lexical_item(phrase: str, senses_data: List[Dict[str, Any]]) -
 
 
 class NativeExplainAgent(Agent):
+    """
+    Language learning agent that guides users through explaining L2 vocabulary 
+    meanings in their native language. Manages multi-sense lexical items and 
+    tracks explanation progress through interactive voice sessions.
+    """
+    
     def __init__(self, chat_ctx: Optional[ChatContext] = None, room_name: Optional[str] = None) -> None:
+        """
+        Initialize the NativeExplainAgent with speech and language processing components.
+        
+        Args:
+            chat_ctx: Optional chat context for conversation history
+            room_name: Optional room name for the session
+        """
         self._room_name = room_name
         
+        # Configure multilingual speech-to-text using Deepgram Nova-3
         stt = deepgram.STT(model="nova-3", language="multi")
+        
+        # Configure Spanish text-to-speech using Google Cloud TTS
         tts = google.TTS(
             language="es-US",
             voice_name="es-US-Chirp3-HD-Puck"
         )
+        
+        # Configure language model for conversation management
         llm=openai.LLM(model="gpt-4o-mini")
+        
+        # Initialize parent Agent with all components
         super().__init__(
             chat_ctx=chat_ctx or ChatContext(),
             instructions=load_prompt('native_explain'),
             llm=llm,
             stt=stt,
             tts=tts,
-            vad=silero.VAD.load(),
-            turn_detection=MultilingualModel()
+            vad=silero.VAD.load(),  # Voice Activity Detection
+            turn_detection=MultilingualModel()  # Turn detection for conversation flow
         )
 
         
 
     @function_tool()
     async def correct_sense_explained(self, sense_number: int, congratulation_message: str) -> str:
-        """Call this tool when the user correctly explains one sense of the target lexical item.
+        """
+        Handle when user correctly explains one sense of the target lexical item.
+        Updates progress tracking and provides appropriate feedback based on remaining senses.
         
         Args:
             sense_number: The sense number (1, 2, etc.) that was correctly explained
             congratulation_message: A congratulatory message in Spanish for this specific sense
+            
+        Returns:
+            Appropriate response message based on completion status
         """
         print(f"✅ Tool executed: correct_sense_explained for sense {sense_number}")
         
-        # Get session data
+        # Get session data containing the target lexical item
         session_info = self.session.userdata
         if not session_info or not session_info.target_lexical_item:
             return "Error: No target lexical item found in session."
         
-        # Mark this sense as explained
+        # Mark this sense as explained and update progress
         target_item = session_info.target_lexical_item
         if target_item.mark_sense_explained(sense_number):
             print(f"✅ Marked sense {sense_number} as explained")
             
-            # Check if all senses are now explained
+            # Check if all senses are now explained (session complete)
             if target_item.all_explained:
                 return f"{congratulation_message} ¡Excelente! Has explicado todos los significados de '{target_item.phrase}'. ¡Sesión completada!"
             else:
+                # Prompt for remaining senses
                 remaining = target_item.remaining_senses
                 remaining_numbers = [str(s.sense_number) for s in remaining]
                 return f"{congratulation_message} Muy bien, pero '{target_item.phrase}' tiene otro significado. ¿Puedes explicar el otro significado de esta frase?"
@@ -139,38 +169,54 @@ class NativeExplainAgent(Agent):
 
     @function_tool()
     async def wrong_answer(self, explanation_message: str) -> str:
-        """Call this tool when the user answers incorrectly explains the target lexical item.
+        """
+        Handle incorrect explanations of the target lexical item.
+        Provides corrective feedback and terminates the session.
         
         Args:
             explanation_message: An explanation message in Spanish about why the answer was wrong and ending the session
+            
+        Returns:
+            Formatted message ending the session
         """
         print("❌ Tool executed: wrong_answer")
         return f"{explanation_message} La sesión ha terminado."
     
     @function_tool()
     async def all_senses_completed(self, final_congratulation: str) -> str:
-        """Call this tool when the user has successfully explained all senses of the target lexical item.
+        """
+        Handle completion of all senses explanation.
+        Called when user has successfully explained all meanings of the target lexical item.
         
         Args:
             final_congratulation: A final congratulatory message in Spanish
+            
+        Returns:
+            Formatted completion message
         """
         print("🎉 Tool executed: all_senses_completed")
         return f"{final_congratulation} ¡Has completado exitosamente la explicación de todos los significados!"
         
     async def on_enter(self) -> None:
-        """Hook called when this agent becomes active."""
+        """
+        Agent initialization hook called when this agent becomes active.
+        Sets up the learning session with target lexical item and generates initial instructions.
+        """
         print("NativeExplainAgent on_enter")
         
         # Get the target lexical item from session data
         session_info = self.session.userdata
         if session_info and session_info.target_lexical_item:
             target_item = session_info.target_lexical_item
+            
+            # Build dynamic instructions based on the target lexical item
             instructions = f"""The TARGET LEXICAL ITEM IS '{target_item.phrase}'. This phrasal verb has {target_item.total_senses} different meanings. 
 
 Ask the user to explain what this phrasal verb means. When they explain a meaning, determine which of the {target_item.total_senses} senses they are explaining and whether it's correct.
 
 The {target_item.total_senses} senses are:
 """
+            # Add each sense definition and example
             for sense in target_item.senses:
                 instructions += f"{sense.sense_number}. {sense.definition} (Example: {sense.examples[0]})\n"
             
@@ -178,7 +224,7 @@ The {target_item.total_senses} senses are:
             
             await self.session.generate_reply(instructions=instructions)
         else:
-            # Fallback if no target item is set
+            # Fallback if no target item is set in session data
             await self.session.generate_reply(
                 instructions="The TARGET LEXICAL ITEM IS 'SETTLE DOWN', ask the user to explain what this phrasal verb means"
             )
